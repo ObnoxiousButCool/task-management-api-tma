@@ -2,7 +2,6 @@
 """CI sanity check run by Agent OS after each code-generation iteration."""
 
 import glob
-import importlib
 import os
 import subprocess
 import sys
@@ -10,7 +9,7 @@ import sys
 
 def run(cmd):
     """Run a subprocess command and return its exit code."""
-    # Defect #3: avoid shell=True so composed command strings cannot be injected.
+    # Defect #9: avoid shell=True so composed command strings cannot be injected.
     result = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=120)
     if result.stdout:
         print(result.stdout)
@@ -34,11 +33,17 @@ def pytest_executable(root):
 def main():
     """Run syntax import checks and the iteration test suite."""
     root = os.path.dirname(os.path.abspath(__file__))
-    try:
-        importlib.import_module("app")
-    except Exception as exc:
-        print(f"Import check failed: {exc}", file=sys.stderr)
-        return 1
+    python_exe = os.path.join(root, ".venv", "Scripts", "python.exe")
+    if not os.path.exists(python_exe):
+        python_exe = os.path.join(root, ".venv", "bin", "python")
+    if not os.path.exists(python_exe):
+        python_exe = sys.executable
+
+    # Defect #9: perform the import check without shell=True and with the project interpreter.
+    import_rc = run([python_exe, "-c", "import app"])
+    if import_rc != 0:
+        print("CI check failed: import check failed", file=sys.stderr)
+        return import_rc
 
     test_files = glob.glob(os.path.join(root, "tests", "test_*.py"))
     if not test_files:
@@ -49,7 +54,7 @@ def main():
     if pytest_exe:
         pytest_cmd = [pytest_exe, *test_files, "--tb=short", "-q", "--no-header"]
     else:
-        pytest_cmd = [sys.executable, "-m", "pytest", *test_files, "--tb=short", "-q", "--no-header"]
+        pytest_cmd = [python_exe, "-m", "pytest", *test_files, "--tb=short", "-q", "--no-header"]
     rc = run(pytest_cmd)
     if rc == 0:
         print("CI check passed: import check and pytest succeeded")
