@@ -11,7 +11,7 @@ class Config:
         "sqlite:///tma.db",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-this-secret")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
     JWT_ALGORITHM = "HS256"
     BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
 
@@ -21,4 +21,5 @@ class TestConfig(Config):
 
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    JWT_SECRET_KEY = "test-secret"
     BCRYPT_ROUNDS = 4

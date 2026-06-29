@@ -27,7 +27,8 @@ Task Management API is a Flask service with JWT authentication, bcrypt password 
    python app.py
    ```
 
-The service listens on `http://localhost:5000`.
+<!-- Defect #6: document the real Flask server behavior. -->
+The service listens on `http://localhost:5000` when run with `python app.py`.
 
 ## API
 

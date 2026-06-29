@@ -1,40 +1,47 @@
-"""Data models for users and tasks."""
+"""SQLAlchemy data models for users and tasks."""
 
-from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import datetime
+
+from db import db
 
 
 VALID_TASK_STATUSES = {"pending", "in_progress", "completed"}
 VALID_TASK_PRIORITIES = {"low", "medium", "high"}
 
 
-@dataclass
-class User:
+class User(db.Model):
     """Registered API user."""
 
-    id: int
-    email: str
-    password_hash: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    tasks = db.relationship("Task", back_populates="user", cascade="all, delete-orphan")
 
     def to_dict(self):
         """Return a public representation of the user."""
         return {"id": self.id, "email": self.email, "created_at": self.created_at.isoformat()}
 
 
-@dataclass
-class Task:
+class Task(db.Model):
     """Task owned by a user."""
 
-    id: int
-    user_id: int
-    title: str
-    description: str | None = None
-    status: str = "pending"
-    priority: str = "medium"
-    due_date: date | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    __tablename__ = "tasks"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(32), nullable=False, default="pending")
+    priority = db.Column(db.String(32), nullable=False, default="medium")
+    due_date = db.Column(db.Date, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship("User", back_populates="tasks")
 
     def validate(self):
         """Validate task status and priority values."""

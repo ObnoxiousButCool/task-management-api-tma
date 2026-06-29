@@ -1,42 +1,19 @@
-"""In-memory persistence used by the local CI-safe API implementation."""
+"""Database extension setup for the Task Management API."""
+
+from flask_sqlalchemy import SQLAlchemy
 
 
-class Database:
-    """Small repository abstraction for users and tasks."""
-
-    def __init__(self):
-        """Initialize empty storage."""
-        self.create_all()
-
-    def init_app(self, app):
-        """Match the Flask-SQLAlchemy extension hook used by the app factory."""
-        return None
-
-    def create_all(self):
-        """Create empty stores and reset primary-key counters."""
-        self.users = {}
-        self.users_by_email = {}
-        self.tasks = {}
-        self.next_user_id = 1
-        self.next_task_id = 1
-
-    def drop_all(self):
-        """Drop all stored records."""
-        self.create_all()
-
-    def session_commit(self):
-        """Compatibility no-op for persistence commits."""
-        return None
-
-
-db = Database()
+db = SQLAlchemy()
 
 
 def init_db(app):
-    """Initialize application persistence."""
+    """Initialize SQLAlchemy for the Flask application."""
+    # Defect #5: initialize the real Flask-SQLAlchemy extension instead of in-memory stores.
     db.init_app(app)
 
 
 def reset_db(app):
-    """Reset application persistence."""
-    db.drop_all()
+    """Drop and recreate all database tables for tests and local maintenance."""
+    with app.app_context():
+        db.drop_all()
+        db.create_all()

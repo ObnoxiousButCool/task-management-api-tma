@@ -9,8 +9,9 @@ import sys
 
 
 def run(cmd):
-    """Run a shell command and return its exit code."""
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
+    """Run a subprocess command and return its exit code."""
+    # Defect #3: avoid shell=True so composed command strings cannot be injected.
+    result = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=120)
     if result.stdout:
         print(result.stdout)
     if result.returncode != 0 and result.stderr:
@@ -44,12 +45,11 @@ def main():
         print("Import check passed; no test files found, skipping pytest")
         return 0
 
-    files_arg = " ".join(f'"{path}"' for path in test_files)
     pytest_exe = pytest_executable(root)
     if pytest_exe:
-        pytest_cmd = f'"{pytest_exe}" {files_arg} --tb=short -q --no-header'
+        pytest_cmd = [pytest_exe, *test_files, "--tb=short", "-q", "--no-header"]
     else:
-        pytest_cmd = f'"{sys.executable}" -m pytest {files_arg} --tb=short -q --no-header'
+        pytest_cmd = [sys.executable, "-m", "pytest", *test_files, "--tb=short", "-q", "--no-header"]
     rc = run(pytest_cmd)
     if rc == 0:
         print("CI check passed: import check and pytest succeeded")

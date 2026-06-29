@@ -8,8 +8,10 @@ from db import db
 def make_client():
     """Create a Flask test client with a clean in-memory database."""
     app = create_app(TestConfig)
-    db.drop_all()
-    db.create_all()
+    # Defect #15: reset the real Flask-SQLAlchemy database under an app context.
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
     return app.test_client()
 
 

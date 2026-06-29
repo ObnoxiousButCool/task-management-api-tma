@@ -1,68 +1,32 @@
 """Application entry point for the Task Management API."""
 
+from flask import Flask
+
 from config import Config
-from db import init_db
-from routes import route_request
+from db import db, init_db
+from routes import register_blueprints
 
 
-class TestResponse:
-    """Minimal response object compatible with Flask's test response API."""
-
-    def __init__(self, body, status_code):
-        """Store response body and status code."""
-        self._body = body
-        self.status_code = status_code
-
-    def get_json(self):
-        """Return the response JSON body."""
-        return self._body
-
-
-class TestClient:
-    """Minimal test client for route-level API tests."""
-
-    def open(self, path, method="GET", json=None, headers=None):
-        """Dispatch a request through the route layer."""
-        body, status_code = route_request(method, path, json, headers)
-        return TestResponse(body, status_code)
-
-    def get(self, path, headers=None):
-        """Dispatch a GET request."""
-        return self.open(path, "GET", headers=headers)
-
-    def post(self, path, json=None, headers=None):
-        """Dispatch a POST request."""
-        return self.open(path, "POST", json=json, headers=headers)
-
-    def put(self, path, json=None, headers=None):
-        """Dispatch a PUT request."""
-        return self.open(path, "PUT", json=json, headers=headers)
-
-    def delete(self, path, headers=None):
-        """Dispatch a DELETE request."""
-        return self.open(path, "DELETE", headers=headers)
-
-
-class Application:
-    """Task Management API application container."""
-
-    def __init__(self, config_object=Config):
-        """Initialize application configuration."""
-        self.config = config_object
-        init_db(self)
-
-    def test_client(self):
-        """Return a local test client."""
-        return TestClient()
+def _validate_config(app):
+    """Validate runtime configuration before serving requests."""
+    # Defect #4: non-test startup must fail when JWT_SECRET_KEY is not supplied.
+    if not app.config.get("TESTING") and not app.config.get("JWT_SECRET_KEY"):
+        raise RuntimeError("JWT_SECRET_KEY environment variable is required")
 
 
 def create_app(config_object=Config):
-    """Create and configure an application instance."""
-    return Application(config_object)
-
-
-app = create_app()
+    """Create and configure a Flask application instance."""
+    # Defects #1 and #7: use a real Flask app so HTTP routes are handled by Flask.
+    app = Flask(__name__)
+    app.config.from_object(config_object)
+    _validate_config(app)
+    init_db(app)
+    register_blueprints(app)
+    with app.app_context():
+        db.create_all()
+    return app
 
 
 if __name__ == "__main__":
-    print("Task Management API is configured. Use a WSGI server with Flask installed for HTTP serving.")
+    # Defect #2: running this module starts the HTTP API.
+    create_app().run(host="0.0.0.0", port=5000)
