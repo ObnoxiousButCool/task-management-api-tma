@@ -1,5 +1,7 @@
 """Seed the Task Management API database with a default user."""
 
+import os
+
 from app import create_app
 from config import Config
 from db import db
@@ -11,8 +13,10 @@ def seed_default_user():
     app = create_app(Config)
     with app.app_context():
         try:
+            # Defect #9: require the local seed password from the environment.
+            password = os.environ["TMA_SEED_ADMIN_PASSWORD"]
             # Defect #9: create and commit the seed user in the SQLAlchemy database.
-            user = register_user("admin@example.com", "admin123")
+            user = register_user("admin@example.com", password)
             db.session.commit()
             return user
         except ValueError:

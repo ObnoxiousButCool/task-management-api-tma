@@ -9,6 +9,7 @@ import json
 
 import bcrypt
 from flask import current_app
+from sqlalchemy.exc import IntegrityError
 
 from db import db
 from models import User
@@ -71,6 +72,9 @@ def decode_token(token):
         payload = _b64decode(body)
     except (ValueError, json.JSONDecodeError, binascii.Error, UnicodeDecodeError) as exc:
         raise ValueError("invalid token") from exc
+    # Defect #1: reject non-object JSON payloads before accessing claims.
+    if not isinstance(payload, dict):
+        raise ValueError("invalid token")
     if payload.get("exp", 0) < datetime.utcnow().timestamp():
         raise ValueError("expired token")
     return payload
@@ -86,7 +90,12 @@ def register_user(email, password):
 
     user = User(email=normalized_email, password_hash=hash_password(password))
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        # Defect #2: handle duplicate-email races from the database constraint.
+        db.session.rollback()
+        raise ValueError("email is already registered") from exc
     return user
 
 
@@ -102,7 +111,12 @@ def authenticate_user(email, password):
 def current_user_from_token(token):
     """Return the user represented by a token."""
     payload = decode_token(token)
-    user = User.query.get(int(payload.get("sub", 0)))
+    try:
+        # Defect #3: normalize invalid token subjects instead of leaking int() errors.
+        user_id = int(payload.get("sub", 0))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid token") from exc
+    user = User.query.get(user_id)
     if not user:
         raise ValueError("invalid token")
     return user

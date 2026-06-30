@@ -7,14 +7,27 @@ import subprocess
 import sys
 
 
+def safe_output(value):
+    """Redact sensitive environment-derived values from subprocess output."""
+    if not value:
+        return value
+    redacted = value
+    sensitive_markers = ("SECRET", "TOKEN", "PASSWORD", "DATABASE_URL", "CONNECTION", "KEY")
+    for name, env_value in os.environ.items():
+        if env_value and len(env_value) >= 4 and any(marker in name.upper() for marker in sensitive_markers):
+            redacted = redacted.replace(env_value, "[REDACTED]")
+    return redacted
+
+
 def run(cmd):
     """Run a subprocess command and return its exit code."""
     # Defect #9: avoid shell=True so composed command strings cannot be injected.
     result = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=120)
     if result.stdout:
-        print(result.stdout)
+        # Defect #10: redact environment-derived secrets before printing subprocess output.
+        print(safe_output(result.stdout))
     if result.returncode != 0 and result.stderr:
-        print(result.stderr, file=sys.stderr)
+        print(safe_output(result.stderr), file=sys.stderr)
     return result.returncode
 
 

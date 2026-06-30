@@ -97,21 +97,33 @@ def delete_task(user_id, task_id):
 
 def completion_analytics(user_id):
     """Return task completion counts and rates overall and by priority."""
-    tasks = Task.query.filter_by(user_id=user_id).all()
+    # Defect #6: aggregate completion counts in SQL instead of loading all tasks.
+    rows = (
+        db.session.query(Task.priority, Task.status, db.func.count(Task.id))
+        .filter_by(user_id=user_id)
+        .group_by(Task.priority, Task.status)
+        .all()
+    )
     by_priority = {}
-    for priority in sorted(VALID_TASK_PRIORITIES):
-        priority_tasks = [task for task in tasks if task.priority == priority]
-        if not priority_tasks:
-            continue
-        completed = len([task for task in priority_tasks if task.status == "completed"])
-        total = len(priority_tasks)
+    total = 0
+    completed_total = 0
+    for priority, status, count in rows:
+        priority_counts = by_priority.setdefault(priority, {"total": 0, "completed": 0})
+        priority_counts["total"] += count
+        total += count
+        if status == "completed":
+            priority_counts["completed"] += count
+            completed_total += count
+
+    for priority in sorted(list(by_priority)):
+        total_for_priority = by_priority[priority]["total"]
+        completed = by_priority[priority]["completed"]
         by_priority[priority] = {
-            "total": total,
+            "total": total_for_priority,
             "completed": completed,
-            "completion_rate": completed / total if total else 0,
+            "completion_rate": completed / total_for_priority if total_for_priority else 0,
         }
-    completed_total = len([task for task in tasks if task.status == "completed"])
-    total = len(tasks)
+
     return {
         "total": total,
         "completed": completed_total,
